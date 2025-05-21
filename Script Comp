@@ -1,8 +1,7 @@
 -- 1. Chargement de la bibliothèque Rayfield (CORRIGÉ AVEC PCALL)
 print("INFO GF: Tentative de chargement de Rayfield...")
-local RayfieldObject -- Déclarer RayfieldObject ici pour qu'il soit accessible après le pcall
+local RayfieldObject
 
--- Ces variables recevront le statut et le résultat/erreur du pcall
 local successRayfieldLoad, loadResultOrRayfield = pcall(function()
     local rawLibrarySource = game:HttpGet('https://raw.githubusercontent.com/ZzSamPiczZ/Test/refs/heads/main/Rayfield', true)
     if not rawLibrarySource or rawLibrarySource == "" then
@@ -37,7 +36,7 @@ if type(RayfieldObject) ~= "table" and type(RayfieldObject) ~= "userdata" then
 end
 
 -- 2. Définition de l'état initial et des configurations
-print("GF: Initialisation de plantGridConfig et State...")
+-- print("GF: Initialisation de plantGridConfig et State...") -- Moins de prints
 local carrotGridConfig = { startX = -29.0, endX = 2.0, startZ = -134.0, endZ = -120.0, yLevel = 0.1355254054069519, spacing = 1.5, seedToPlant = "Carrot"}
 local bambooGridConfig = { startX = -28.5, endX = 1.0, startZ = -103.5, endZ = -91.0, yLevel = 0.1355254054069519, spacing = 2.0, seedToPlant = "Bamboo"}
 
@@ -47,7 +46,7 @@ local function generatePlantLocationsFromGrid(config)
         table.insert(locations, {vector = Vector3.new(x, config.yLevel, z), seed = config.seedToPlant})
         count = count + 1
     end end
-    print("INFO GF: " .. count .. " emplacements générés pour " .. config.seedToPlant .. " (espacement: " .. config.spacing .. ")")
+    -- print("INFO GF: " .. count .. " emplacements générés pour " .. config.seedToPlant .. " (espacement: " .. config.spacing .. ")") -- Moins de prints
     return locations
 end
 
@@ -66,40 +65,62 @@ local State = {
     bambooPlantLocations = generatePlantLocationsFromGrid(bambooGridConfig),
     plantRemoteEvent = nil, nightQuestRemoteEvent = nil, sellInventoryRemoteEvent = nil
 }
-print("INFO GF: Table 'State' initialisée.")
+-- print("INFO GF: Table 'State' initialisée.") -- Moins de prints
 
 -- 3. Fonctions d'assistance (Helpers)
-local function notifyUser(title, content, duration, type) if RayfieldObject and RayfieldObject.Notify and type(RayfieldObject.Notify) == "function" then RayfieldObject:Notify({ Title = title or "Notification", Content = content or "", Duration = duration or 5, Type = type or "info" }) else print("NOTIFY (fallback):", title, content) end end
+local function notifyUser(title, content, duration, type)
+    if RayfieldObject and RayfieldObject.Notify then
+        if type(RayfieldObject.Notify) == "function" then
+            local success, err = pcall(function()
+                RayfieldObject:Notify({
+                    Title = title or "Notification",
+                    Content = content or "",
+                    Duration = duration or 5,
+                    Type = type or "info"
+                })
+            end)
+            if not success then
+                print("ERREUR GF: Appel à RayfieldObject:Notify a échoué. Erreur:", tostring(err))
+                print("Fallback sur print (Notification):", title, content) -- Message de fallback clair
+            end
+        else
+            print("ERREUR GF: RayfieldObject.Notify n'est pas une fonction. Type:", type(RayfieldObject.Notify))
+            print("Fallback sur print (Notification):", title, content)
+        end
+    else
+        -- print("WARN GF: RayfieldObject ou RayfieldObject.Notify non trouvé pour la notification.") 
+        print("Fallback sur print (Notification):", title, content)
+    end
+end
+
 local function setupRemoteEvent(eventName, eventTypeForState, specificStateField)
-    print("INFO GF: Configuration RemoteEvent pour '" .. eventName .. "'...")
+    -- print("INFO GF: Configuration RemoteEvent pour '" .. eventName .. "'...") -- Moins de prints
     local success, remoteEventOrError = pcall(function() local r=game:GetService("ReplicatedStorage"):WaitForChild("GameEvents",20) if not r then error("GameEvents DNE") end local e=r:WaitForChild(eventName,20) if not e then error(eventName.." DNE in GameEvents") end return e end)
-    if success and remoteEventOrError then State[specificStateField]=remoteEventOrError; print("INFO GF: RE '"..eventName.."' OK.") return true else print("ERREUR GF: RE '"..eventName.."' Échec:",tostring(remoteEventOrError)) notifyUser("Erreur RE "..eventTypeForState,"RE '"..eventName.."' introuvable.",15,"error") return false end
+    if success and remoteEventOrError then State[specificStateField]=remoteEventOrError; -- print("INFO GF: RE '"..eventName.."' OK.") -- Moins de prints
+    return true else print("ERREUR GF: RE '"..eventName.."' Échec:",tostring(remoteEventOrError)) notifyUser("Erreur RE "..eventTypeForState,"RE '"..eventName.."' introuvable.",15,"error") return false end
 end
 local function attemptItemPurchase(itemName,itemType) local re=(itemType=="seed")and State.seedRemoteEvent or State.gearRemoteEvent local tn=(itemType=="seed")and"Graine"or"Équipement" if not re then notifyUser("ERR Achat "..tn,"RE DNE.",5,"error")return false end if not itemName then return false end local s,e=pcall(function()re:FireServer(itemName)end) if not s then notifyUser("ERR Achat "..tn,"Échec:"..tostring(e),7,"warning") end return s end
 local function attemptPlant(locVec,seedName) if not State.plantRemoteEvent then notifyUser("ERR Plant","RE Plant DNE.",5,"error")return false end if not locVec or not seedName then return false end local a={locVec,seedName} local s,e=pcall(function()State.plantRemoteEvent:FireServer(unpack(a))end) if not s then notifyUser("ERR Plant","Échec Plant:"..tostring(e),7,"warning") end return s end
 
--- 4. Logiques des boucles (maintenant formatées sur plusieurs lignes pour clarté)
+-- 4. Logiques des boucles
 local function autoBuySeedLoop()
     State.currentSeedIndex_Seed = 1
     while State.isAutoBuyingSeeds do
         if #State.selectedSeedsList > 0 then
             if State.currentSeedIndex_Seed > #State.selectedSeedsList or State.currentSeedIndex_Seed < 1 then
-                State.currentSeedIndex_Seed = 1 -- Réinitialiser l'index s'il est hors limites
+                State.currentSeedIndex_Seed = 1 
             end
             local seedName = State.selectedSeedsList[State.currentSeedIndex_Seed]
             if seedName then
                 attemptItemPurchase(seedName, "seed")
                 State.currentSeedIndex_Seed = State.currentSeedIndex_Seed + 1
             else
-                State.currentSeedIndex_Seed = 1 -- Fallback, réinitialiser l'index
+                State.currentSeedIndex_Seed = 1 
             end
         end
         task.wait(State.seedPurchaseInterval)
-        if not State.isAutoBuyingSeeds then
-            -- OK: break est à l'intérieur de la boucle while
-            break
-        end
-    end -- Fin de la boucle while
+        if not State.isAutoBuyingSeeds then break end
+    end 
     State.autoBuySeedTask = nil
 end
 
@@ -108,22 +129,19 @@ local function autoBuyGearLoop()
     while State.isAutoBuyingGear do
         if #State.selectedGearList > 0 then
             if State.currentGearIndex_Gear > #State.selectedGearList or State.currentGearIndex_Gear < 1 then
-                State.currentGearIndex_Gear = 1 -- Réinitialiser l'index s'il est hors limites
+                State.currentGearIndex_Gear = 1 
             end
             local gearName = State.selectedGearList[State.currentGearIndex_Gear]
             if gearName then
                 attemptItemPurchase(gearName, "gear")
                 State.currentGearIndex_Gear = State.currentGearIndex_Gear + 1
             else
-                State.currentGearIndex_Gear = 1 -- Fallback, réinitialiser l'index
+                State.currentGearIndex_Gear = 1 
             end
         end
         task.wait(State.gearPurchaseInterval)
-        if not State.isAutoBuyingGear then
-            -- OK: break est à l'intérieur de la boucle while
-            break
-        end
-    end -- Fin de la boucle while
+        if not State.isAutoBuyingGear then break end
+    end 
     State.autoBuyGearTask = nil
 end
 
@@ -131,36 +149,18 @@ local function autoPlantCarrotLoop()
     while State.isAutoPlantingCarrots do
         if #State.carrotPlantLocations == 0 then
             notifyUser("Info AutoPCrt", "Aucun emplacement défini pour les carottes, arrêt.", 7, "warning")
-            State.isAutoPlantingCarrots = false
-            -- OK: break est à l'intérieur de la boucle while
-            break 
+            State.isAutoPlantingCarrots = false; break 
         end
-        
         for _, pD in ipairs(State.carrotPlantLocations) do
-            if not State.isAutoPlantingCarrots then
-                -- OK: break est à l'intérieur de la boucle for (qui est dans while)
-                break 
-            end
+            if not State.isAutoPlantingCarrots then break end
             attemptPlant(pD.vector, pD.seed)
-            if not State.isAutoPlantingCarrots then
-                -- OK: break est à l'intérieur de la boucle for
-                break 
-            end
+            if not State.isAutoPlantingCarrots then break end
             task.wait(State.carrotPlantBetweenPlotDelay)
-        end -- Fin de la boucle for
-        
-        if not State.isAutoPlantingCarrots then
-            -- OK: break est à l'intérieur de la boucle while (si la boucle 'for' a été interrompue)
-            break 
         end
-        
+        if not State.isAutoPlantingCarrots then break end
         task.wait(State.carrotPlantCycleInterval)
-        
-        if not State.isAutoPlantingCarrots then
-            -- OK: break est à l'intérieur de la boucle while (si l'état a changé pendant la longue attente)
-            break 
-        end
-    end -- Fin de la boucle while
+        if not State.isAutoPlantingCarrots then break end
+    end
     State.autoPlantCarrotTask = nil
 end
 
@@ -168,36 +168,18 @@ local function autoPlantBambooLoop()
     while State.isAutoPlantingBamboo do
         if #State.bambooPlantLocations == 0 then
             notifyUser("Info AutoPBmb", "Aucun emplacement défini pour le bambou, arrêt.", 7, "warning")
-            State.isAutoPlantingBamboo = false
-            -- OK: break est à l'intérieur de la boucle while
-            break 
+            State.isAutoPlantingBamboo = false; break
         end
-        
         for _, pD in ipairs(State.bambooPlantLocations) do
-            if not State.isAutoPlantingBamboo then
-                -- OK: break est à l'intérieur de la boucle for (qui est dans while)
-                break 
-            end
+            if not State.isAutoPlantingBamboo then break end
             attemptPlant(pD.vector, pD.seed)
-            if not State.isAutoPlantingBamboo then
-                -- OK: break est à l'intérieur de la boucle for
-                break 
-            end
+            if not State.isAutoPlantingBamboo then break end
             task.wait(State.bambooPlantBetweenPlotDelay)
-        end -- Fin de la boucle for
-        
-        if not State.isAutoPlantingBamboo then
-            -- OK: break est à l'intérieur de la boucle while (si la boucle 'for' a été interrompue)
-            break 
         end
-        
+        if not State.isAutoPlantingBamboo then break end
         task.wait(State.bambooPlantCycleInterval)
-        
-        if not State.isAutoPlantingBamboo then
-            -- OK: break est à l'intérieur de la boucle while (si l'état a changé pendant la longue attente)
-            break 
-        end
-    end -- Fin de la boucle while
+        if not State.isAutoPlantingBamboo then break end
+    end
     State.autoPlantBambooTask = nil
 end
 
@@ -210,7 +192,7 @@ local function onAutoPlantCarrotToggleChanged(v,t)State.isAutoPlantingCarrots=v 
 local function onAutoPlantBambooToggleChanged(v,t)State.isAutoPlantingBamboo=v if v then if not State.plantRemoteEvent then notifyUser("ERR AutoPBmb","RemoteEvent pour planter non trouvé!",7,"error")State.isAutoPlantingBamboo=false if t and typeof(t.SetValue)=="function"then t:SetValue(false)end return end if #State.bambooPlantLocations==0 then notifyUser("Info AutoPBmb","Aucun emplacement défini pour le bambou.",5,"warn")State.isAutoPlantingBamboo=false if t and typeof(t.SetValue)=="function"then t:SetValue(false)end return end State.autoPlantBambooTask=task.spawn(autoPlantBambooLoop)end end
 
 -- 6. Initialisation de l'interface Rayfield
-print("INFO GF: Tentative de création de la fenêtre Rayfield...")
+-- print("INFO GF: Tentative de création de la fenêtre Rayfield...") -- Moins de prints
 local successWindow, windowOrErr = pcall(function()
     return RayfieldObject:CreateWindow({
         Name = "Gestionnaire Ferme Ultime (v3.0 GrosFix)", 
@@ -221,21 +203,21 @@ local successWindow, windowOrErr = pcall(function()
 end)
 if not successWindow or not windowOrErr then print("ERREUR GF: Rayfield:CreateWindow échec:",tostring(windowOrErr)) notifyUser("Erreur Rayfield","Fenêtre non créée: "..tostring(windowOrErr),20,"error") return end
 local WindowObject = windowOrErr
-print("INFO GF: Fenêtre Rayfield créée. Type:", type(WindowObject))
+-- print("INFO GF: Fenêtre Rayfield créée. Type:", type(WindowObject)) -- Moins de prints
 
-print("INFO GF: Initialisation des RemoteEvents...")
+-- print("INFO GF: Initialisation des RemoteEvents...") -- Moins de prints
 setupRemoteEvent("BuySeedStock", "Graines", "seedRemoteEvent")
 setupRemoteEvent("BuyGearStock", "Équipements", "gearRemoteEvent")
 setupRemoteEvent("Plant_RE", "Plantation", "plantRemoteEvent")
 setupRemoteEvent("NightQuestRemoteEvent", "QuêteNocturne", "nightQuestRemoteEvent")
 setupRemoteEvent("Sell_Inventory", "VenteInventaire", "sellInventoryRemoteEvent")
-print("INFO GF: Fin initialisation RemoteEvents.")
+-- print("INFO GF: Fin initialisation RemoteEvents.") -- Moins de prints
 
-print("INFO GF: Tentative de création de l'onglet principal...")
+-- print("INFO GF: Tentative de création de l'onglet principal...") -- Moins de prints
 local successTab, tabOrErr = pcall(function() return WindowObject:CreateTab("Actions Ferme Complètes", nil) end)
 if not successTab or not tabOrErr then print("ERREUR GF: Window:CreateTab échec:",tostring(tabOrErr)) notifyUser("Erreur Rayfield","Onglet non créé: "..tostring(tabOrErr),20,"error") return end
 local MainTabObject = tabOrErr
-print("INFO GF: Onglet principal créé. Type:", type(MainTabObject))
+-- print("INFO GF: Onglet principal créé. Type:", type(MainTabObject)) -- Moins de prints
 
 local uiCreationSuccess = true 
 local function createUIElement(elementType, config)
@@ -251,25 +233,25 @@ local function createUIElement(elementType, config)
         uiCreationSuccess = false
         return nil
     else
-        print("INFO GF UI: Élément '"..config.Name.."' ("..elementType..") créé. Type:", type(elementOrErr))
+        -- print("INFO GF UI: Élément '"..config.Name.."' ("..elementType..") créé. Type:", type(elementOrErr)) -- Moins de prints
         if elementType == "Dropdown" and elementOrErr and typeof(elementOrErr.SetEnabled) == "function" then elementOrErr:SetEnabled(true) end
         return elementOrErr
     end
 end
 
-print("INFO GF: Création UI Graines...")
+-- print("INFO GF: Création UI Graines...") -- Moins de prints
 local SeedDropdown = createUIElement("Dropdown", { Name = "Graines (multi):", Options = State.seedOptions, CurrentOption = State.selectedSeedsList, MultipleOptions = true, Flag = "GF_SeedsDrop_v3", Callback = onSelectedSeedsChanged })
 local AutoBuySeedsToggle = createUIElement("Toggle", { Name = "Auto-Achat Graines", CurrentValue = State.isAutoBuyingSeeds, Flag = "GF_AutoBuySeeds_v3", Callback = function(v) onAutoBuySeedsToggleChanged(v, AutoBuySeedsToggle) end })
 
-print("INFO GF: Création UI Équipements...")
+-- print("INFO GF: Création UI Équipements...") -- Moins de prints
 local GearDropdown = createUIElement("Dropdown", { Name = "Équipements (multi):", Options = State.gearOptions, CurrentOption = State.selectedGearList, MultipleOptions = true, Flag = "GF_GearDrop_v3", Callback = onSelectedGearChanged })
 local AutoBuyGearToggle = createUIElement("Toggle", { Name = "Auto-Achat Équipements", CurrentValue = State.isAutoBuyingGear, Flag = "GF_AutoBuyGear_v3", Callback = function(v) onAutoBuyGearToggleChanged(v, AutoBuyGearToggle) end })
 
-print("INFO GF: Création UI Plantation...")
+-- print("INFO GF: Création UI Plantation...") -- Moins de prints
 local AutoPlantCarrotToggle = createUIElement("Toggle", { Name = "Auto-Plantation Zone (" .. carrotGridConfig.seedToPlant .. ")", CurrentValue = State.isAutoPlantingCarrots, Flag = "GF_AutoPlantCarrot_v3", Callback = function(v) onAutoPlantCarrotToggleChanged(v, AutoPlantCarrotToggle) end })
 local AutoPlantBambooToggle = createUIElement("Toggle", { Name = "Auto-Plantation Zone (" .. bambooGridConfig.seedToPlant .. ")", CurrentValue = State.isAutoPlantingBamboo, Flag = "GF_AutoPlantBamboo_v3", Callback = function(v) onAutoPlantBambooToggleChanged(v, AutoPlantBambooToggle) end })
 
-print("INFO GF: Création UI Actions Diverses...")
+-- print("INFO GF: Création UI Actions Diverses...") -- Moins de prints
 if State.nightQuestRemoteEvent then
     createUIElement("Button", { Name = "Soumettre Plantes (Nuit)", Flag = "GF_SubmitNQ_v3", Callback = function() if State.nightQuestRemoteEvent then local s,e=pcall(function()State.nightQuestRemoteEvent:FireServer("SubmitAllPlants")end) notifyUser("Quête Nuit",s and "Envoyé."or"Échec:"..tostring(e),s and 3 or 7,s and"info"or"error") else notifyUser("ERR Quête Nuit","RE DNE",5,"error")end end })
 else notifyUser("Info Action","Quête Nuit non dispo (RE DNE)",7,"warning") end
