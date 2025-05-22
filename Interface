@@ -1,0 +1,136 @@
+--]]
+
+local function removeOldGui()
+	local oldGuiInstance = playerGui:FindFirstChild("SamInterfaceGui")
+	if oldGuiInstance then
+		oldGuiInstance:Destroy()
+		print("Ancienne 'SamInterfaceGui' trouvée et supprimée.")
+	end
+end
+
+local function createBaseScreenGuiAndSetupF4Toggle() -- Nom de fonction mis à jour
+	local newScreenGui = Instance.new("ScreenGui")
+	newScreenGui.Name = "SamInterfaceGui"
+	newScreenGui.Enabled = true
+	newScreenGui.ResetOnSpawn = false
+	-- Le .Parent sera défini dans le flux principal après le retour de cette fonction
+
+	-- ### Logique F4 intégrée ici ###
+	local function onF4InputBegan(input, gameProcessedEvent)
+		if gameProcessedEvent then return Enum.ContextActionResult.Pass end
+		
+		if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.F4 then
+			-- On agit sur 'newScreenGui' qui est la variable locale de cette fonction de création
+			newScreenGui.Enabled = not newScreenGui.Enabled
+			
+			-- Si l'UI est cachée et que le dropdown est visible (et existe)
+			if not newScreenGui.Enabled and dropdownOptionsFrame and dropdownOptionsFrame.Visible then
+				dropdownOptionsFrame.Visible = false
+			end
+			return Enum.ContextActionResult.Sink
+		end
+		return Enum.ContextActionResult.Pass
+	end
+	UserInputService.InputBegan:Connect(onF4InputBegan)
+	-- ### Fin de la logique F4 intégrée ###
+	
+	return newScreenGui
+end
+
+local function createDraggableContainer(parentGui)
+	-- Dimensions
+	local containerWidthScale = 0.3
+	local titleHeightPixels = 50
+	local panelSpacingPixels = 10
+	local panelHeightPixels = 250
+	local containerHeightPixels = titleHeightPixels + panelSpacingPixels + panelHeightPixels
+
+	local container = Instance.new("Frame")
+	container.Name = "DraggableContainerFrame"
+	container.Size = UDim2.new(containerWidthScale, 0, 0, containerHeightPixels)
+	container.AnchorPoint = Vector2.new(0.5, 0)
+	container.Position = UDim2.new(0.5, 0, 0, 10)
+	container.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	container.BackgroundTransparency = 0.1
+	container.BorderSizePixel = 0
+	container.ClipsDescendants = true
+	container.Active = false
+	container.Parent = parentGui
+
+	local title = Instance.new("TextLabel")
+	title.Name = "TitleLabel"
+	title.Text = "!Sam Interface (Déplaçable)"
+	title.Size = UDim2.new(1, 0, 0, titleHeightPixels)
+	title.AnchorPoint = Vector2.new(0.5, 0)
+	title.Position = UDim2.new(0.5, 0, 0, 0)
+	title.Font = Enum.Font.SourceSansBold
+	title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	title.TextSize = 24
+	title.TextWrapped = true
+	title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	title.BackgroundTransparency = 0.3
+	title.Active = true
+	title.Selectable = false
+	title.Parent = container
+
+	local panel = Instance.new("Frame")
+	panel.Name = "MainPanel"
+	panel.Size = UDim2.new(1, -20, 0, panelHeightPixels)
+	panel.AnchorPoint = Vector2.new(0.5, 0)
+	panel.Position = UDim2.new(0.5, 0, 0, titleHeightPixels + panelSpacingPixels)
+	panel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	panel.BackgroundTransparency = 0.2
+	panel.BorderSizePixel = 2
+	panel.BorderColor3 = Color3.fromRGB(20,20,20)
+	panel.ClipsDescendants = true
+	panel.Active = false
+	panel.Parent = container
+
+	local listLayout = Instance.new("UIListLayout")
+	listLayout.Parent = panel
+	listLayout.Padding = UDim.new(0, 10)
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	listLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+	
+	local dragging = false
+	local dragStartMousePosition = nil
+	local dragStartFramePosition = nil
+	local inputChangedConnection = nil
+	local inputEndedConnection = nil
+
+	title.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStartMousePosition = Vector2.new(input.Position.X, input.Position.Y)
+			dragStartFramePosition = container.Position
+
+			if dropdownOptionsFrame and dropdownOptionsFrame.Visible then
+				dropdownOptionsFrame.Visible = false
+			end
+
+			inputChangedConnection = UserInputService.InputChanged:Connect(function(changedInput)
+				if dragging and (changedInput.UserInputType == Enum.UserInputType.MouseMovement or changedInput.UserInputType == Enum.UserInputType.Touch) then
+					local currentMousePosition = Vector2.new(changedInput.Position.X, changedInput.Position.Y)
+					local delta = currentMousePosition - dragStartMousePosition
+					container.Position = UDim2.new(
+						dragStartFramePosition.X.Scale, dragStartFramePosition.X.Offset + delta.X,
+						dragStartFramePosition.Y.Scale, dragStartFramePosition.Y.Offset + delta.Y
+					)
+				end
+			end)
+
+			inputEndedConnection = UserInputService.InputEnded:Connect(function(endedInput)
+				if dragging and (endedInput.UserInputType == Enum.UserInputType.MouseButton1 or endedInput.UserInputType == Enum.UserInputType.Touch) then
+					dragging = false
+					if inputChangedConnection then inputChangedConnection:Disconnect(); inputChangedConnection = nil; end
+					if inputEndedConnection then inputEndedConnection:Disconnect(); inputEndedConnection = nil; end
+				end
+			end)
+		end
+	end)
+	
+	return container, title, panel
+end
+
+--[[
