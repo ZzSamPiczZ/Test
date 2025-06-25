@@ -1,0 +1,271 @@
+-- Créer un nouvel ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+screenGui.Name = "MonInterface"
+screenGui.ResetOnSpawn = false -- Empêche l'interface de se réinitialiser à chaque respawn
+screenGui.BackgroundTransparency = 0.5 -- Rendre le ScreenGui transparent à 50%
+
+-- Créer le Frame principal
+local mainFrame = Instance.new("Frame")
+mainFrame.Parent = screenGui
+mainFrame.Size = UDim2.new(0.4, 0, 0.4, 0) -- Augmenter la taille du frame pour les sliders
+mainFrame.Position = UDim2.new(0.3, 0, 0.3, 0) -- Ajuster la position du frame
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5) -- Ancrer au centre
+mainFrame.BackgroundColor3 = Color3.new(0.8, 0.8, 0.8)
+mainFrame.Name = "MainFrame"
+
+-- Créer le bouton de fermeture
+local closeButton = Instance.new("TextButton")
+closeButton.Parent = mainFrame
+closeButton.Size = UDim2.new(0.2, 0, 0.1, 0) -- Ajuster la taille du bouton
+closeButton.Position = UDim2.new(0.8, 0, 0.05, 0) -- Position en haut à droite du Frame
+closeButton.AnchorPoint = Vector2.new(1, 0)
+closeButton.Text = "Fermer"
+closeButton.Name = "CloseButton"
+
+-- Ajouter une fonctionnalité au bouton de fermeture
+closeButton.MouseButton1Click:Connect(function()
+    screenGui:Destroy() -- Détruire le ScreenGui pour fermer l'interface
+end)
+
+-- Créer le bouton de masquage
+local hideButton = Instance.new("TextButton")
+hideButton.Parent = mainFrame
+hideButton.Size = UDim2.new(0.2, 0, 0.1, 0) -- Ajuster la taille du bouton
+hideButton.Position = UDim2.new(0.8, 0, 0.15, 0) -- Position sous le bouton de fermeture
+hideButton.AnchorPoint = Vector2.new(1, 0)
+hideButton.Text = "Masquer"
+hideButton.Name = "HideButton"
+local isVisible = true
+
+-- Fonction pour basculer la visibilité du Frame
+local function toggleFrameVisibility()
+    isVisible = not isVisible
+    mainFrame.Visible = isVisible
+    if isVisible then
+        hideButton.Text = "Masquer"
+    else
+        hideButton.Text = "Afficher"
+    end
+end
+
+-- Ajouter une fonctionnalité au bouton de masquage
+hideButton.MouseButton1Click:Connect(toggleFrameVisibility)
+
+-- Créer le "Setting" (qui pourrait être un autre bouton ou un Frame)
+local settingsButton = Instance.new("TextButton")
+settingsButton.Parent = mainFrame
+settingsButton.Size = UDim2.new(0.2, 0, 0.1, 0) -- Ajuster la taille du bouton
+settingsButton.Position = UDim2.new(0.1, 0, 0.05, 0) -- Position en haut à gauche du Frame
+settingsButton.AnchorPoint = Vector2.new(0, 0)
+settingsButton.Text = "Paramètres"
+settingsButton.Name = "SettingsButton"
+
+-- Ajouter une fonctionnalité au bouton "Setting" ici
+settingsButton.MouseButton1Click:Connect(function()
+    -- Ajouter ici le code pour afficher/masquer les paramètres
+    print("Bouton Paramètres cliqué !")
+end)
+
+-- Ajouter une fonctionnalité de bouton de clavier pour masquer/afficher
+local UserInputService = game:GetService("UserInputService")
+local hideKey = Enum.KeyCode.F4 -- Touche à utiliser pour masquer/afficher
+
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if not gameProcessedEvent then -- Vérifie si l'événement d'entrée n'a pas été consommé par une autre partie du jeu
+        if input.KeyCode == hideKey then
+            toggleFrameVisibility()
+        end
+    end
+end)
+
+-- Ajouter le nom et la photo de profil du joueur en bas à gauche
+local playerInfoFrame = Instance.new("Frame")
+playerInfoFrame.Parent = screenGui
+playerInfoFrame.Size = UDim2.new(0.2, 0, 0.1, 0) -- Ajustez la taille selon vos besoins
+playerInfoFrame.Position = UDim2.new(0.01, 0, 0.89, 0) -- Coin inférieur gauche avec une petite marge
+playerInfoFrame.AnchorPoint = Vector2.new(0, 1) -- Ancrer au coin inférieur gauche
+playerInfoFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+playerInfoFrame.BackgroundTransparency = 0.8 -- Rendre légèrement transparent
+playerInfoFrame.BorderSizePixel = 0
+playerInfoFrame.Name = "PlayerInfo"
+
+local profilePicture = Instance.new("ImageLabel")
+profilePicture.Parent = playerInfoFrame
+profilePicture.Size = UDim2.new(0.4, 0, 1, 0) -- Prend 40% de la largeur du frame
+profilePicture.Position = UDim2.new(0, 0, 0, 0)
+profilePicture.AnchorPoint = Vector2.new(0, 0)
+profilePicture.BackgroundTransparency = 1
+profilePicture.Name = "ProfilePicture"
+
+local usernameLabel = Instance.new("TextLabel")
+usernameLabel.Parent = playerInfoFrame
+usernameLabel.Size = UDim2.new(0.6, 0, 1, 0) -- Prend 60% de la largeur restante
+usernameLabel.Position = UDim2.new(0.4, 0, 0, 0)
+usernameLabel.AnchorPoint = Vector2.new(0, 0)
+usernameLabel.BackgroundTransparency = 1
+usernameLabel.Font = Enum.Font.SourceSansBold
+usernameLabel.TextSize = 16
+usernameLabel.TextColor3 = Color3.new(0, 0, 0)
+usernameLabel.TextStrokeTransparency = 0
+usernameLabel.Name = "UsernameLabel"
+usernameLabel.TextXAlignment = Enum.TextXAlignment.Left
+usernameLabel.TextYAlignment = Enum.TextYAlignment.Center
+
+local player = game.Players.LocalPlayer
+usernameLabel.Text = player.Name
+
+local function getProfilePicture(userId)
+    local success, result = pcall(game.Players.GetPlayerThumbnailAsync, game.Players, userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+    if success and result then
+        return result
+    else
+        warn("Erreur lors du chargement de la photo de profil:", result)
+        return ""
+    end
+end
+
+if player then
+    local userId = player.UserId
+    local thumbnailUrl = getProfilePicture(userId)
+    profilePicture.Image = thumbnailUrl
+end
+
+-- Ajouter les sliders
+local settingsFrame = Instance.new("Frame")
+settingsFrame.Parent = mainFrame
+settingsFrame.Size = UDim2.new(0.9, 0, 0.6, 0)
+settingsFrame.Position = UDim2.new(0.05, 0, 0.35, 0)
+settingsFrame.AnchorPoint = Vector2.new(0, 0)
+settingsFrame.BackgroundColor3 = Color3.new(0.9, 0.9, 0.9)
+settingsFrame.BackgroundTransparency = 0.5
+settingsFrame.BorderSizePixel = 0
+settingsFrame.Name = "SettingsPanel"
+
+local speedwalkLabel = Instance.new("TextLabel")
+speedwalkLabel.Parent = settingsFrame
+speedwalkLabel.Size = UDim2.new(0.4, 0, 0.2, 0)
+speedwalkLabel.Position = UDim2.new(0.05, 0, 0.05, 0)
+speedwalkLabel.AnchorPoint = Vector2.new(0, 0)
+speedwalkLabel.BackgroundTransparency = 1
+speedwalkLabel.Font = Enum.Font.SourceSansBold
+speedwalkLabel.TextSize = 18
+speedwalkLabel.Text = "Vitesse de marche:"
+speedwalkLabel.TextColor3 = Color3.new(0, 0, 0)
+speedwalkLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local speedwalkValue = Instance.new("TextLabel")
+speedwalkValue.Parent = settingsFrame
+speedwalkValue.Size = UDim2.new(0.2, 0, 0.2, 0)
+speedwalkValue.Position = UDim2.new(0.45, 0, 0.05, 0)
+speedwalkValue.AnchorPoint = Vector2.new(0, 0)
+speedwalkValue.BackgroundTransparency = 1
+speedwalkValue.Font = Enum.Font.SourceSansBold
+speedwalkValue.TextSize = 18
+speedwalkValue.Text = "16"
+speedwalkValue.TextColor3 = Color3.new(0, 0, 0)
+speedwalkValue.TextXAlignment = Enum.TextXAlignment.Left
+
+local speedwalkIncrementButton = Instance.new("TextButton")
+speedwalkIncrementButton.Parent = settingsFrame
+speedwalkIncrementButton.Size = UDim2.new(0.1, 0, 0.2, 0)
+speedwalkIncrementButton.Position = UDim2.new(0.7, 0, 0.05, 0)
+speedwalkIncrementButton.AnchorPoint = Vector2.new(0, 0)
+speedwalkIncrementButton.Text = "+"
+speedwalkIncrementButton.Font = Enum.Font.SourceSansBold
+speedwalkIncrementButton.TextSize = 20
+speedwalkIncrementButton.BackgroundColor3 = Color3.new(0.7, 0.7, 0.7)
+speedwalkIncrementButton.Name = "SpeedwalkIncrement"
+
+local speedwalkDecrementButton = Instance.new("TextButton")
+speedwalkDecrementButton.Parent = settingsFrame
+speedwalkDecrementButton.Size = UDim2.new(0.1, 0, 0.2, 0)
+speedwalkDecrementButton.Position = UDim2.new(0.8, 0, 0.05, 0)
+speedwalkDecrementButton.AnchorPoint = Vector2.new(0, 0)
+speedwalkDecrementButton.Text = "-"
+speedwalkDecrementButton.Font = Enum.Font.SourceSansBold
+speedwalkDecrementButton.TextSize = 20
+speedwalkDecrementButton.BackgroundColor3 = Color3.new(0.7, 0.7, 0.7)
+speedwalkDecrementButton.Name = "SpeedwalkDecrement"
+
+local jumppowerLabel = Instance.new("TextLabel")
+jumppowerLabel.Parent = settingsFrame
+jumppowerLabel.Size = UDim2.new(0.4, 0, 0.2, 0)
+jumppowerLabel.Position = UDim2.new(0.05, 0, 0.3, 0)
+jumppowerLabel.AnchorPoint = Vector2.new(0, 0)
+jumppowerLabel.BackgroundTransparency = 1
+jumppowerLabel.Font = Enum.Font.SourceSansBold
+jumppowerLabel.TextSize = 18
+jumppowerLabel.Text = "Puissance de saut:"
+jumppowerLabel.TextColor3 = Color3.new(0, 0, 0)
+jumppowerLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local jumppowerValue = Instance.new("TextLabel")
+jumppowerValue.Parent = settingsFrame
+jumppowerValue.Size = UDim2.new(0.2, 0, 0.2, 0)
+jumppowerValue.Position = UDim2.new(0.45, 0, 0.3, 0)
+jumppowerValue.AnchorPoint = Vector2.new(0, 0)
+jumppowerValue.BackgroundTransparency = 1
+jumppowerValue.Font = Enum.Font.SourceSansBold
+jumppowerValue.TextSize = 18
+jumppowerValue.Text = "50"
+jumppowerValue.TextColor3 = Color3.new(0, 0, 0)
+jumppowerValue.TextXAlignment = Enum.TextXAlignment.Left
+
+local jumppowerIncrementButton = Instance.new("TextButton")
+jumppowerIncrementButton.Parent = settingsFrame
+jumppowerIncrementButton.Size = UDim2.new(0.1, 0, 0.2, 0)
+jumppowerIncrementButton.Position = UDim2.new(0.7, 0, 0.3, 0)
+jumppowerIncrementButton.AnchorPoint = Vector2.new(0, 0)
+jumppowerIncrementButton.Text = "+"
+jumppowerIncrementButton.Font = Enum.Font.SourceSansBold
+jumppowerIncrementButton.TextSize = 20
+jumppowerIncrementButton.BackgroundColor3 = Color3.new(0.7, 0.7, 0.7)
+jumppowerIncrementButton.Name = "JumppowerIncrement"
+
+local jumppowerDecrementButton = Instance.new("TextButton")
+jumppowerDecrementButton.Parent = settingsFrame
+jumppowerDecrementButton.Size = UDim2.new(0.1, 0, 0.2, 0)
+jumppowerDecrementButton.Position = UDim2.new(0.8, 0, 0.3, 0)
+jumppowerDecrementButton.AnchorPoint = Vector2.new(0, 0)
+jumppowerDecrementButton.Text = "-"
+jumppowerDecrementButton.Font = Enum.Font.SourceSansBold
+jumppowerDecrementButton.TextSize = 20
+jumppowerDecrementButton.BackgroundColor3 = Color3.new(0.7, 0.7, 0.7)
+jumppowerDecrementButton.Name = "JumppowerDecrement"
+
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+
+-- Initialisation des valeurs
+local currentSpeedwalk = humanoid.WalkSpeed
+local currentJumppower = humanoid.JumpPower
+speedwalkValue.Text = tostring(currentSpeedwalk)
+jumppowerValue.Text = tostring(currentJumppower)
+
+-- Fonctionnalité des boutons Speedwalk
+speedwalkIncrementButton.MouseButton1Click:Connect(function()
+    currentSpeedwalk = math.min(100, currentSpeedwalk + 5)
+    humanoid.WalkSpeed = currentSpeedwalk
+    speedwalkValue.Text = tostring(currentSpeedwalk)
+end)
+
+speedwalkDecrementButton.MouseButton1Click:Connect(function()
+    currentSpeedwalk = math.max(16, currentSpeedwalk - 5)
+    humanoid.WalkSpeed = currentSpeedwalk
+    speedwalkValue.Text = tostring(currentSpeedwalk)
+end)
+
+-- Fonctionnalité des boutons JumpPower
+jumppowerIncrementButton.MouseButton1Click:Connect(function()
+    currentJumppower = math.min(250, currentJumppower + 10)
+    humanoid.JumpPower = currentJumppower
+    jumppowerValue.Text = tostring(currentJumppower)
+end)
+
+jumppowerDecrementButton.MouseButton1Click:Connect(function()
+    currentJumppower = math.max(50, currentJumppower - 10)
+    humanoid.JumpPower = currentJumppower
+    jumppowerValue.Text = tostring(currentJumppower)
+end)
